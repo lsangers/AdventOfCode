@@ -5,7 +5,7 @@ filename = __file__[:-5] + '-input'
 with open(filename) as f:
     input_values = list(map(int, f.read().splitlines()))
 
-curr_depth = 999999
+curr_depth = max(input_values)*4
 
 count = 0
 
