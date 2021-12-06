@@ -23,4 +23,3 @@ for i in range(len(input_values[0])):
     epsilon_rate_string += "1" if count_0 > count_1 else "0"
 
 print(int(gamma_rate_string, 2)* int(epsilon_rate_string, 2))
-
