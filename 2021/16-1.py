@@ -1,5 +1,6 @@
 import os
 import sys
+from functools import reduce
 
 filename = __file__[:-5] + '-input'
 
@@ -25,57 +26,82 @@ translation = {
     'F': '1111',
 }
 
-hex_chars = input_values[0]
 bits = ''
-for ch in hex_chars:
+for ch in input_values[0]:
     bits += translation[ch]
 
+class Packet:
+    def __init__(self, bitstring):
+        self.bitstring = bitstring
+        self.version = int(bitstring[:3], 2)
+        self.type = int(bitstring[3:6], 2)
+        self.total_packet_length = 0
+        self.subpackets = []
 
-
-def get_literals(bitstring):
-    res = ''
-    start_index = 0
-    getting_literals = True
-    while getting_literals:
-        lit = bitstring[start_index:start_index+5]
-        res += lit[1:]
-        if lit[0] == '0':
-            getting_literals = False
-            start_index += 5
+        # packet is a literal value
+        if self.type == 4:
+            potential_value_bits = bitstring[6:]
+            start_index = 0
+            getting_literal_value = True
+            literal_value_bitstring = ''
+            while getting_literal_value:
+                lit = potential_value_bits[start_index:start_index+5]
+                start_index += 5
+                literal_value_bitstring += lit[1:]
+                if lit[0] == '0':
+                    getting_literal_value = False
+            self.literal_value = int(literal_value_bitstring, 2)
+            self.total_packet_length = 6 + start_index
         else:
-            start_index += 5
-    return str(int(res, 2)), start_index
+            self.length_type = bitstring[6]
+            # next 15 bits are number that represents total length in bits of sub-packets in this packet
+            if self.length_type == '0':
+                total_length = int(bitstring[7:22], 2)
+                self.total_packet_length = 22 + total_length
 
-def get_packets(bitstring):
-    version = int(bitstring[:3], 2)
-    type = int(bitstring[3:6], 2)
-    versions = []          
+                next_subpacket_start = 22
 
-    if type == 4:
-        lit, start_index = get_literals(bitstring[6:])
-        processed_till = 6+start_index
-    else:
-        length_type = bitstring[6]
-        if length_type == '0':
-            total_bits = int(bitstring[7:22], 2)
-            bitstring = bitstring[22:22+total_bits]  
-            while len(bitstring) > 0:
-                tmp_version, tmp_type, processed_till = get_packets(bitstring)
-                versions.append(tmp_version)
-                bitstring = bitstring[processed_till:] 
-        else:
-            sub_parts = int(bitstring[7:18], 2)
-            bitstring = bitstring[18:] 
-            for _ in range(sub_parts):
-                tmp_version, tmp_type, processed_till = get_packets(bitstring)
-                versions.append(tmp_version)
-                bitstring = bitstring[processed_till:] 
-
-    return (version+sum(versions), type, processed_till)
+                while next_subpacket_start < self.total_packet_length:
+                    next_subpacket = Packet(bitstring[next_subpacket_start:self.total_packet_length])
+                    self.subpackets.append(next_subpacket)
+                    next_subpacket_start += next_subpacket.total_packet_length
                 
+            # next 11 bits are number that represents number of sub-packets in this packet
+            else:
+                num_of_subpackets = int(bitstring[7:18], 2)
+
+                next_subpacket_start = 18
+
+                for _ in range(num_of_subpackets):
+                    next_subpacket = Packet(bitstring[next_subpacket_start:])
+                    self.subpackets.append(next_subpacket)
+                    next_subpacket_start += next_subpacket.total_packet_length
+                self.total_packet_length = next_subpacket_start
+    
+    def version_total(self):
+        return self.version + sum(map(lambda p: p.version_total(), self.subpackets))
+
+    def calc_value(self):
+        if self.type == 0:
+            return sum(map(lambda p: p.calc_value(), self.subpackets))
+        elif self.type == 1:
+            return reduce(lambda x, y: x*y, map(lambda p: p.calc_value(), self.subpackets), 1)
+        elif self.type == 2:
+            return min(map(lambda p: p.calc_value(), self.subpackets))
+        elif self.type == 3:
+            return max(map(lambda p: p.calc_value(), self.subpackets))
+        elif self.type == 4:
+            return self.literal_value
+        elif self.type == 5:
+            return 1 if self.subpackets[0].calc_value() > self.subpackets[1].calc_value() else 0
+        elif self.type == 6:
+            return 1 if self.subpackets[0].calc_value() < self.subpackets[1].calc_value() else 0
+        elif self.type == 7:
+            return 1 if self.subpackets[0].calc_value() == self.subpackets[1].calc_value() else 0
 
 
 
-version, type, processed_till = get_packets(bits)    
+p = Packet(bits)
 
-print(str(version))
+print(p.version_total())
+
