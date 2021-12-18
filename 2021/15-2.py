@@ -1,5 +1,6 @@
 import os
 import sys
+import timeit
 
 filename = __file__[:-5] + '-input'
 
@@ -47,7 +48,7 @@ def get_neighbors(node):
     if(row+1 < max_row):
         n.append((row+1,col))
 
-    if(col > 0):
+    if(col > 0) :
         n.append((row,col-1))
     if(col+1 < max_col):
         n.append((row,col+1))
@@ -65,28 +66,47 @@ def calc_score(cameFrom, curr):
         path.append(curr)
     return sum([score(n) for n in path]) - score((0, 0))
 
-def dijkstra(start, goal, heuristic):
+def get_val(d, n):
+    if n in d:
+        return d[n]
+    else:
+        return 999999999
+
+fScore = {}
+
+def a_star(start, goal, heuristic):
     openSet = set()
     openSet.add(start)
 
     cameFrom = {}
+    gScore = {}
+    gScore[start] = 0
     
-    fScore = {}
     fScore[start] = heuristic(start)
 
     while len(openSet) > 0:
-        print(len(fScore))
-        curr = min(fScore.keys() & openSet, key=fScore.get)
+        #print(len(fScore))
+        curr = min(openSet, key=lambda n: fScore[n])
         if curr == goal:
-            return calc_score(cameFrom, curr)
+            return gScore[goal]#calc_score(cameFrom, curr)
+
+        if goal in openSet:
+            print("found goal at len:", len(gScore))
 
         openSet.remove(curr)
-        for n in list(filter(lambda elem: elem not in fScore, get_neighbors(curr))):
-            cameFrom[n] = curr
-            fScore[n] = fScore[curr] + heuristic(n)
-            if n not in openSet:
-                openSet.add(n)
+        for n in get_neighbors(curr):
+            tentative_gScore = gScore[curr] + score(n)
+            if tentative_gScore < get_val(gScore, n):
+                cameFrom[n] = curr
+                gScore[n] = tentative_gScore
+                fScore[n] = tentative_gScore + heuristic(n)
+                if n not in openSet:
+                    openSet.add(n)
     
     return -1
 
-print(dijkstra((0, 0), (max_row-1, max_col-1), score))
+start = timeit.default_timer()
+print(a_star((0, 0), (max_row-1, max_col-1), lambda node: score(node)))
+stop = timeit.default_timer()
+
+print('Time: ', stop - start)

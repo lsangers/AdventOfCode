@@ -39,20 +39,21 @@ for i in range(5):
 max_row = len(board)
 max_col = len(board[0])
 
-def get_neighbors(node, d):
-    (row, col) = node
-    n = []
+fScore = [[99999999 for _ in range(max_col)] for _ in range(max_row)]
 
-    if(row > 0) and (row-1,col) not in d:
+def get_neighbors(node, score):
+    (row, col) = node
+    n = []    
+
+    if(row > 0) and fScore[row-1][col] > score + board[row-1][col]:
         n.append((row-1,col))
-    if(row+1 < max_row) and (row+1,col) not in d:
+    if(row+1 < max_row) and fScore[row+1][col] > score + board[row+1][col]:
         n.append((row+1,col))
 
-    if(col > 0) and (row,col-1) not in d:
+    if(col > 0) and fScore[row][col-1] > score + board[row][col-1]:
         n.append((row,col-1))
-    if(col+1 < max_col) and (row,col+1) not in d:
+    if(col+1 < max_col) and fScore[row][col+1] > score + board[row][col+1]:
         n.append((row,col+1))
-
 
     return n
 
@@ -72,26 +73,24 @@ def dijkstra(start, goal, heuristic):
 
     cameFrom = {}
     
-    fScore = {}
-    fScore[start] = heuristic(start)
+    fScore[start[0]][start[1]] = heuristic(start)
 
     while len(openSet) > 0:
-        print(len(fScore))
-        curr = min(openSet, key=lambda n: fScore[n])
+        curr = min(openSet, key=lambda n: fScore[n[0]][n[1]])
         if curr == goal:
             return calc_score(cameFrom, curr)
 
         openSet.remove(curr)
-        for n in get_neighbors(curr, fScore):
+        for n in get_neighbors(curr, fScore[curr[0]][curr[1]]):
             cameFrom[n] = curr
-            fScore[n] = fScore[curr] + heuristic(n)
+            fScore[n[0]][n[1]] = fScore[curr[0]][curr[1]] + heuristic(n)
             if n not in openSet:
                 openSet.add(n)
     
     return -1
 
 start = timeit.default_timer()
-print(dijkstra((max_row-1, max_col-1), (0, 0), score))
+print(dijkstra((0, 0), (max_row-1, max_col-1), score))
 stop = timeit.default_timer()
 
 print('Time: ', stop - start)  
